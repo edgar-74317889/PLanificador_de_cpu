@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Planificación del CPU - Prioridad</title>
+    <style>
+        body {
+        font-family: 'Arial', sans-serif;
+        text-align: center;
+        margin: 20px;
+    }
+
+    #output {
+        margin-top: 20px;
+    }
+
+    table {
+        border-collapse: collapse;
+        width: 50%;
+        margin: 20px auto;
+    }
+
+    th, td {
+        border: 1px solid #dddddd;
+        text-align: left;
+        padding: 8px;
+    }
+
+    th {
+        background-color: #f2f2f2;
+    }
+
+    #gantt-chart {
+        margin-top: 2px; 
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+    }
+
+    #tiempo-promedio {
+        margin-top: 20px;
+    }
+
+    .gantt-bar {
+        height: 40px;
+        border: 1px solid #f3eeee;
+        margin-right: 10px;
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .gantt-row {
+        display: flex;
+        align-items: flex-end;
+        margin-bottom: 10px;
+    }
+
+    .gantt-label {
+        flex-grow: 1;
+        text-align: center;
+    }
+
+    .gantt-legend {
+        display: flex;
+        margin-top: 10px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-right: 20px;
+    }
+
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        margin-right: 5px;
+    }
+
+    .tiempo-acumulado {
+        position: absolute;
+        bottom: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+        text-align: center;
+        font-size: 12px;
+        color: #f0eaea;
+        white-space: nowrap;
+    }
+    .contenedor{
+        background-color: #4a4a4a;
+        width: 50vw;
+        height: auto;
+        margin: 40px auto;
+        padding: 20px;
+    }
+    button{
+        border-radius: 5px;
+        width: 170px;
+        height: 50px;
+
+    }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+    <h1>Simulador de Planificación del CPU - Prioridad</h1>
+
+    <h2>Información Inicial de Procesos</h2>
+    <table border="1" id="procesos-info">
+        <caption>Procesos y Tiempo de Ráfaga</caption>
+        <thead>
+            <tr>
+                <th>Proceso</th>
+                <th>Tiempo de Ráfaga</th>
+                <th>Prioridad</th>
+            </tr>
+        </thead>
+        <tbody id="procesos-info-body"></tbody>
+    </table>
+
+    <button onclick="iniciarSimulacion()">Iniciar Simulación</button>
+
+    <!-- Agrega esta sección para mostrar el diagrama de Gantt -->
+    <div id="gantt-chart">
+        <h2>Diagrama de Gantt</h2>
+        <div id="gantt-legend"></div>
+        <div id="gantt-bars"></div>
+    </div>
+
+    <!-- Agrega esta sección para mostrar la tabla de Tiempo Promedio -->
+    <div id="tiempo-promedio">
+        <h2>Tiempo Promedio de Procesos</h2>
+        <table border="1" id="tiempo-promedio-info">
+            <thead>
+                <tr>
+                    <th>Proceso</th>
+                    <th>Tiempo de Espera</th>
+                </tr>
+            </thead>
+            <tbody id="tiempo-promedio-body"></tbody>
+        </table>
+        <div id="resultado-tiempo-promedio"></div>
+    </div>
+</div>
+    <script>
+        class Proceso {
+            constructor(numero, tiempoRafaga, prioridad) {
+                this.numero = numero;
+                this.tiempoRafaga = tiempoRafaga;
+                this.tiempoRestante = tiempoRafaga;
+                this.tiempoEntrada = 0;
+                this.tiempoFinalizacion = 0;
+                this.tiempoEspera = 0;
+                this.prioridad = prioridad;
+            }
+        }
+
+        const procesos = [];
+        let tiempoGlobal = 0;
+
+        function simularPlanificacionPrioridad() {
+            const ganttBars = document.getElementById("gantt-bars");
+            const ganttLegend = document.getElementById("gantt-legend");
+            const tiempoPromedioBody = document.getElementById("tiempo-promedio-body");
+
+            ganttBars.innerHTML = "";
+            ganttLegend.innerHTML = "";
+            tiempoPromedioBody.innerHTML = "";
+
+            let tiempoTotal = 0;
+            let tiempoInicialTotal = 0;
+
+            const ganttRow = document.createElement("div");
+            ganttRow.className = "gantt-row";
+
+            const tiemposInicialesSumados = [];
+
+            let colaListos = [...procesos];
+
+            // Ordena la cola de listos por prioridad (la más alta primero)
+            colaListos.sort((a, b) => a.prioridad - b.prioridad);
+
+            while (colaListos.length > 0) {
+                const procesoActual = colaListos.shift();
+
+                const tiempoEjecucion = procesoActual.tiempoRestante;
+
+                const tiempoInicial = tiempoTotal;
+                const tiempoFinal = tiempoTotal + tiempoEjecucion;
+
+                tiemposInicialesSumados.push(tiempoInicial);
+
+                const ganttBar = document.createElement("div");
+                ganttBar.className = "gantt-bar";
+                ganttBar.style.width = `${tiempoEjecucion * 20}px`;
+                ganttBar.innerHTML = `<div class="gantt-label">${procesoActual.numero}</div>`;
+
+                const tiempoAcumulado = document.createElement("div");
+                tiempoAcumulado.textContent = `${tiempoTotal}s - ${tiempoFinal}s`;
+                tiempoAcumulado.className = "tiempo-acumulado";
+                ganttBar.appendChild(tiempoAcumulado);
+
+                ganttRow.appendChild(ganttBar);
+
+                const legendItem = document.createElement("div");
+                const legendColor = document.createElement("div");
+                const TiemposIniciales = [];
+                legendItem.className = "legend-item";
+                legendColor.className = "legend-color";
+                legendColor.style.backgroundColor = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+
+                legendItem.appendChild(legendColor);
+                legendItem.textContent = `Proceso ${procesoActual.numero} (${tiempoInicial}s - ${tiempoFinal}s)`;
+                TiemposIniciales.push(tiempoInicial);
+                ganttLegend.appendChild(legendItem);
+
+                tiempoTotal = tiempoFinal;
+
+                // Calcula el tiempo de espera y actualiza el tiempo de ejecución restante
+                procesoActual.tiempoEspera = tiempoTotal - procesoActual.tiempoEntrada - procesoActual.tiempoRafaga;
+                procesoActual.tiempoRestante = 0;
+                procesoActual.tiempoFinalizacion = tiempoFinal;
+            }
+
+            const tiempoPromedio = calcularTiempoPromedioEspera();
+            const tiempoPromedioRow = document.createElement("tr");
+            const promedioLabelCell = document.createElement("td");
+            const promedioCell = document.createElement("td");
+                // Mostrar la tabla de Tiempo de Espera
+                var i=0;
+                procesos.forEach((proceso,i)=> {
+                    const row = document.createElement("tr");
+                    const numeroCell = document.createElement("td");
+                    const esperaCell = document.createElement("td");
+                    
+                    numeroCell.textContent = proceso.numero;
+                    esperaCell.textContent = tiemposInicialesSumados[i];
+    
+                    row.appendChild(numeroCell);
+                    row.appendChild(esperaCell);
+    
+                    tiempoPromedioBody.appendChild(row);
+        
+                });
+
+            promedioLabelCell.textContent = "Tiempo Promedio de Espera:";
+            promedioCell.textContent = `(${tiemposInicialesSumados.join(' + ')} ) / ${procesos.length} = ${(tiemposInicialesSumados.reduce((total,valor)=>total+valor,0))/procesos.length}s`;
+
+            tiempoPromedioRow.appendChild(promedioLabelCell);
+            tiempoPromedioRow.appendChild(promedioCell);
+
+            tiempoPromedioBody.appendChild(tiempoPromedioRow);
+
+        
+
+            ganttBars.appendChild(ganttRow);
+
+            
+        }
+
+        function calcularTiempoPromedioEspera() {
+            let tiempoEsperaTotal = 0;
+            procesos.forEach(proceso => {
+                tiempoEsperaTotal += proceso.tiempoEspera;
+            });
+
+            return tiempoEsperaTotal / procesos.length;
+        }
+
+        function actualizarInterfaz() {
+            const procesosInfoBody = document.getElementById("procesos-info-body");
+
+            procesosInfoBody.innerHTML = "";
+
+            procesos.forEach(proceso => {
+                const row = document.createElement("tr");
+                const numeroCell = document.createElement("td");
+                const rafagaCell = document.createElement("td");
+                const prioridadCell = document.createElement("td");
+
+                numeroCell.textContent = proceso.numero;
+                rafagaCell.textContent = proceso.tiempoRafaga;
+                prioridadCell.textContent = proceso.prioridad;
+
+                row.appendChild(numeroCell);
+                row.appendChild(rafagaCell);
+                row.appendChild(prioridadCell);
+
+                procesosInfoBody.appendChild(row);
+            });
+        }
+
+        function iniciarSimulacion() {
+            procesos.length = 0;
+
+            const numProcesos = parseInt(prompt("Ingrese el número de procesos:", "5"));
+
+            for (let i = 1; i <= numProcesos; i++) {
+                const tiempoRafaga = parseInt(prompt(`Ingrese el tiempo de ráfaga para el proceso ${i}`));
+                const prioridad = parseInt(prompt(`Ingrese la prioridad para el proceso ${i}`));
+
+                procesos.push(new Proceso(i, tiempoRafaga, prioridad));
+            }
+
+            let tiempoEntrada = 0;
+            procesos.forEach(proceso => {
+                proceso.tiempoEntrada = tiempoEntrada;
+                proceso.tiempoFinalizacion = tiempoEntrada + proceso.tiempoRafaga;
+                tiempoEntrada = proceso.tiempoFinalizacion;
+            });
+
+            tiempoGlobal = 0;
+            simularPlanificacionPrioridad();
+            actualizarInterfaz();
+        }
+    </script>
+</body>
+</html>

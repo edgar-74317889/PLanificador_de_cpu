@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuevo Documento</title>
+    <style>
+        #recuadro {
+            border: 5px solid green;
+            padding: 10px;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <button onclick="cargarContenido()">Planificacion por FCFS</button>
+    <div id="recuadro"></div>
+
+    <script>
+        // Función para realizar la solicitud AJAX
+        function cargarContenido() {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "prueba.html", true);
+
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    // Insertar el contenido HTML en el elemento con id "recuadro"
+                    document.getElementById("recuadro").innerHTML = xhr.responseText;
+                }
+            };
+
+            xhr.send();
+        }
+    </script>
+</body>
+</html>
