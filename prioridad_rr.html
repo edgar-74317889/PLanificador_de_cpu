@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Planificación del CPU</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 50%;
+            margin: 20px auto;
+        }
+
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        #gantt-chart {
+            margin-top: 20px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .gantt-bar {
+            height: 40px;
+            border: 1px solid #333;
+            margin-right: 10px;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .gantt-row {
+            display: flex;
+            align-items: flex-end;
+            margin-bottom: 10px;
+        }
+
+        .gantt-label {
+            flex-grow: 1;
+            text-align: center;
+        }
+
+        .tiempo-acumulado {
+            position: absolute;
+            bottom: -30px; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            color: #333;
+            white-space: nowrap; 
+        }
+
+        #form-container {
+            margin-top: 20px;
+        }
+
+        #form-container input {
+            margin: 5px;
+        }
+
+        #quantum-container {
+            margin-top: 10px;
+        }
+
+        button {
+            border-radius: 5px;
+            width: 150px;
+            height: 40px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simulador de Planificación del CPU</h1>
+
+    <div id="form-container">
+        <label for="num-processes">Número de Procesos:</label>
+        <input type="number" id="num-processes" value="5">
+
+        <button onclick="crearFormulario()">Crear Formulario</button>
+
+        <div id="formulario"></div>
+    </div>
+
+    <div id="quantum-container">
+        <label for="quantum">Quantum (Round Robin):</label>
+        <input type="number" id="quantum" value="2">
+    </div>
+
+    <button onclick="simularPlanificacion()">Iniciar Simulación</button>
+
+    <!-- Agrega esta sección para mostrar la tabla de Resultados -->
+    <div id="resultados">
+        <h2>Resultados</h2>
+        <table border="1" id="resultados-table">
+            <thead>
+                <tr>
+                    <th>Proceso</th>
+                    <th>Burst time</th>
+                    <th>Waiting time</th>
+                    <th>Turn around time</th>
+                </tr>
+            </thead>
+            <tbody id="resultados-body"></tbody>
+        </table>
+        <div id="average-times"></div>
+    </div>
+
+    <!-- Agrega esta sección para mostrar el diagrama de Gantt -->
+    <div id="gantt-chart">
+        <h2>Diagrama de Gantt</h2>
+        <div id="gantt-bars"></div>
+    </div>
+
+    <script>
+        function crearFormulario() {
+            const numProcesses = parseInt(document.getElementById("num-processes").value);
+            const formularioContainer = document.getElementById("formulario");
+            formularioContainer.innerHTML = "";
+
+            for (let i = 1; i <= numProcesses; i++) {
+                const label = document.createElement("label");
+                label.textContent = `Burst time para Proceso ${i}:`;
+
+                const input = document.createElement("input");
+                input.type = "number";
+                input.id = `burst-time-${i}`;
+
+                formularioContainer.appendChild(label);
+                formularioContainer.appendChild(input);
+            }
+        }
+
+        const findWaitingTime = (processes, n, bt, wt, quantum) => {
+            let rem_bt = new Array(n).fill(0);
+            for (let i = 0; i < n; i++)
+                rem_bt[i] = bt[i];
+
+            let t = 0;
+            while (1) {
+                let done = true;
+
+                for (let i = 0; i < n; i++) {
+                    if (rem_bt[i] > 0) {
+                        done = false;
+
+                        if (rem_bt[i] <= quantum) {
+                            t = t + rem_bt[i];
+                            wt[i] = t - bt[i];
+                            rem_bt[i] = 0;
+                        } else {
+                            t = t + quantum;
+                            rem_bt[i] -= quantum;
+                        }
+                    }
+                }
+
+                if (done === true)
+                    break;
+            }
+        }
+
+        const findTurnAroundTime = (processes, n, bt, wt, tat) => {
+            for (let i = 0; i < n; i++)
+                tat[i] = bt[i] + wt[i];
+        }
+
+        const findavgTime = (processes, n, bt, quantum) => {
+            let wt = new Array(n).fill(0), tat = new Array(n).fill(0);
+            let total_wt = 0, total_tat = 0;
+
+            findWaitingTime(processes, n, bt, wt, quantum);
+            findTurnAroundTime(processes, n, bt, wt, tat);
+
+            const resultadosBody = document.getElementById("resultados-body");
+            resultadosBody.innerHTML = "";
+
+            // Agrega esta sección para el diagrama de Gantt
+            const ganttBars = document.getElementById("gantt-bars");
+            ganttBars.innerHTML = "";
+
+            for (let i = 0; i < n; i++) {
+                total_wt = total_wt + wt[i];
+                total_tat = total_tat + tat[i];
+
+                const row = document.createElement("tr");
+                const procesoCell = document.createElement("td");
+                const burstTimeCell = document.createElement("td");
+                const waitingTimeCell = document.createElement("td");
+                const turnAroundTimeCell = document.createElement("td");
+
+                procesoCell.textContent = processes[i];
+                burstTimeCell.textContent = bt[i];
+                waitingTimeCell.textContent = wt[i];
+                turnAroundTimeCell.textContent = tat[i];
+
+                row.appendChild(procesoCell);
+                row.appendChild(burstTimeCell);
+                row.appendChild(waitingTimeCell);
+                row.appendChild(turnAroundTimeCell);
+
+                resultadosBody.appendChild(row);
+
+                // Agrega una barra en el diagrama de Gantt para cada proceso
+                const ganttBar = document.createElement("div");
+                ganttBar.className = "gantt-bar";
+                ganttBar.style.width = `${tat[i] * 20}px`; // Escala para la visualización
+
+                const ganttLabel = document.createElement("div");
+                ganttLabel.className = "gantt-label";
+                ganttLabel.textContent = `P${processes[i]}`;
+
+                // Mostrar el tiempo acumulado al final de cada proceso en el diagrama de Gantt
+                const tiempoAcumulado = document.createElement("div");
+                tiempoAcumulado.textContent = `${total_tat}s`;
+                tiempoAcumulado.className = "tiempo-acumulado";
+                ganttBar.appendChild(tiempoAcumulado);
+
+                ganttBar.appendChild(ganttLabel);
+                ganttBars.appendChild(ganttBar);
+            }
+
+            const averageTimesDiv = document.getElementById("average-times");
+            averageTimesDiv.innerHTML = "";
+
+            const averageWaitingTime = document.createElement("div");
+            averageWaitingTime.textContent = `Tiempo de espera promedio: ${total_wt / n} unidades de tiempo`;
+
+            const averageTurnAroundTime = document.createElement("div");
+            averageTurnAroundTime.textContent = `Tiempo de retorno promedio: ${total_tat / n} unidades de tiempo`;
+
+            averageTimesDiv.appendChild(averageWaitingTime);
+            averageTimesDiv.appendChild(averageTurnAroundTime);
+        }
+
+        function simularPlanificacion() {
+            const numProcesses = parseInt(document.getElementById("num-processes").value);
+            const processes = Array.from({ length: numProcesses }, (_, i) => i + 1);
+            const burst_time = processes.map(process => parseInt(document.getElementById(`burst-time-${process}`).value));
+            const n = processes.length;
+            const quantum = parseInt(document.getElementById("quantum").value);
+
+            findavgTime(processes, n, burst_time, quantum);
+        }
+    </script>
+</body>
+</html>
