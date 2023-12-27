@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Metadatos y configuración -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulación de Atención en el Banco</title>
+  
+  <!-- Estilos CSS -->
+  <style>
+    /* Estilos para el cuerpo del documento */
+    body {
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 20px;
+    }
+
+    /* Otros estilos para etiquetas y contenedores */
+    label {
+      margin-bottom: 10px;
+    }
+
+    input, button {
+      padding: 8px;
+      margin-bottom: 10px;
+    }
+
+    #ventanillas-container {
+      display: flex;
+      margin-bottom: 20px;
+    }
+
+    .ventanilla {
+      width: 100px;
+      height: 100px;
+      margin: 0 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: lightgreen;
+      border: 2px solid darkgreen;
+      border-radius: 8px;
+      transition: background-color 0.5s;
+    }
+
+    .ventanilla-ocupada {
+      background-color: yellow;
+      border: 2px solid darkorange;
+    }
+
+    .ventanilla-fuera-servicio {
+      background-color: red;
+      border: 2px solid darkred;
+    }
+
+    #cola-container, #atendidas-container {
+      width: 70%;
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #dddddd;
+      text-align: left;
+      padding: 8px;
+    }
+
+    th {
+      background-color: #f2f2f2;
+    }
+  </style>
+</head>
+<body>
+  <!-- Contenido del cuerpo -->
+  <h1>Simulación de Atención en el Banco</h1>
+  <label for="ventanillas">Cantidad de Ventanillas:</label>
+  <input type="number" id="ventanillas" min="1" value="3">
+  <button onclick="startSimulation()">Iniciar Simulación</button>
+
+  <div id="ventanillas-container"></div>
+  <div id="cola-container">
+    <!-- Contenido para la cola de personas -->
+    <strong>Cola de Personas:</strong>
+    <table>
+      <thead>
+        <tr>
+          <th>Persona</th>
+          <th>Prioridad</th>
+        </tr>
+      </thead>
+      <tbody id="cola-table-body"></tbody>
+    </table>
+  </div>
+  <div id="atendidas-container">
+    <!-- Contenido para personas atendidas y estadísticas -->
+    <strong>Personas Atendidas:</strong>
+    <table>
+      <thead>
+        <tr>
+          <th>N° de Personas Atendidas</th>
+          <th>Ventanilla</th>
+          <th>Persona</th>
+          <th>Proceso</th>
+          <th>Tiempo de Atención (segundos)</th>
+        </tr>
+      </thead>
+      <tbody id="atendidas-table-body"></tbody>
+    </table>
+    <p id="stats">Total Personas Atendidas: 0 | Tiempo Total de Atención: 0 segundos</p>
+  </div>
+
+  <!-- Script JavaScript -->
+  <script>
+    function startSimulation() {
+      // Variables para almacenar elementos del DOM y datos de simulación
+      const numeroVentanillas = document.getElementById('ventanillas').value;
+      const ventanillasContainer = document.getElementById('ventanillas-container');
+      const colaContainer = document.getElementById('cola-container');
+      const atendidasContainer = document.getElementById('atendidas-container');
+      const atendidasTableBody = document.getElementById('atendidas-table-body');
+      const colaTableBody = document.getElementById('cola-table-body');
+      const statsElement = document.getElementById('stats');
+      const colaPersonas = [];
+      const atendidasPersonas = [];
+      let totalPersonasAtendidas = 0;
+      let tiempoTotalAtencion = 0;
+
+      // Limpiar contenido anterior
+      ventanillasContainer.innerHTML = '';
+      atendidasTableBody.innerHTML = '';
+      colaTableBody.innerHTML = '';
+      statsElement.textContent = 'Total Personas Atendidas: 0 | Tiempo Total de Atención: 0 segundos';
+
+      // Crear ventanillas
+      for (let i = 1; i <= numeroVentanillas; i++) {
+        const ventanilla = document.createElement('div');
+        ventanilla.className = 'ventanilla';
+        ventanilla.textContent = `Ventanilla ${i}`;
+        ventanillasContainer.appendChild(ventanilla);
+      }
+
+      // Definir tipos de clientes
+      const tiposClientes = [
+        'Cliente con cuentas comunes',
+        'Cliente personas naturales VIP',
+        'Cliente personas jurídicas comunes',
+        'Cliente personas jurídicas VIP',
+        'Cliente sin tarjeta',
+        'Cliente mayor de 60 años',
+        'Cliente con deficiencia física',
+        'Cliente con necesidades especiales'
+      ];
+
+      // Función para obtener un tipo de cliente aleatorio
+      function getRandomTipoCliente() {
+        const randomIndex = Math.floor(Math.random() * tiposClientes.length);
+        return tiposClientes[randomIndex];
+      }
+
+      // Función para asignar prioridad según el tipo de cliente
+      function getPrioridad(tipoCliente) {
+        if (tipoCliente.includes('Cliente mayor de 60 años') || tipoCliente.includes('Cliente con deficiencia física') || tipoCliente.includes('Cliente con necesidades especiales')) {
+          return 1;
+        } else if (tipoCliente.includes('Cliente con cuentas comunes') || tipoCliente.includes('Cliente personas naturales VIP') || tipoCliente.includes('Cliente personas jurídicas comunes') || tipoCliente.includes('Cliente personas jurídicas VIP')) {
+          return 2;
+        } else {
+          return 3;
+        }
+      }
+
+      // Función para obtener un tiempo de atención aleatorio en una ventanilla
+      function getRandomTiempoVentanilla() {
+        return Math.floor(Math.random() * 10) + 1; // Tiempo aleatorio entre 1 y 10 segundos
+      }
+
+      // Función para obtener un tiempo aleatorio sin ser atendido
+      function getRandomTiempoSinAtender() {
+        return Math.floor(Math.random() * 5) + 1; // Tiempo aleatorio entre 1 y 5 segundos sin atender
+      }
+
+      // Función para actualizar la tabla de la cola
+      function updateColaTable() {
+        colaTableBody.innerHTML = '';
+        colaPersonas.forEach((persona) => {
+          const row = document.createElement('tr');
+          const cellPersona = document.createElement('td');
+          cellPersona.textContent = persona.tipoCliente;
+          row.appendChild(cellPersona);
+          const cellPrioridad = document.createElement('td');
+          cellPrioridad.textContent = getPrioridad(persona.tipoCliente);
+          row.appendChild(cellPrioridad);
+          colaTableBody.appendChild(row);
+        });
+      }
+
+      // Función para actualizar la tabla de personas atendidas
+      function updateAtendidasTable() {
+        atendidasTableBody.innerHTML = '';
+        atendidasPersonas.forEach((persona, index) => {
+          const row = document.createElement('tr');
+          const cellNumPersonas = document.createElement('td');
+          cellNumPersonas.textContent = index + 1;
+          const cellVentanilla = document.createElement('td');
+          cellVentanilla.textContent = persona.ventanilla;
+          const cellPersona = document.createElement('td');
+          cellPersona.textContent = persona.tipoCliente;
+          const cellProceso = document.createElement('td');
+          cellProceso.textContent = 'Terminado'; // Cambiado a 'Terminado'
+          const cellTiempo = document.createElement('td');
+          cellTiempo.textContent = persona.tiempoAtencion;
+          row.appendChild(cellNumPersonas);
+          row.appendChild(cellVentanilla);
+          row.appendChild(cellPersona);
+          row.appendChild(cellProceso);
+          row.appendChild(cellTiempo);
+          atendidasTableBody.appendChild(row);
+        });
+      }
+
+      // Función para actualizar estadísticas
+      function updateStats() {
+        statsElement.textContent = `Total Personas Atendidas: ${totalPersonasAtendidas} | Tiempo Total de Atención: ${tiempoTotalAtencion} segundos`;
+      }
+
+      // Función para simular la llegada de una persona a la cola
+      function simulateArrival(tiempo) {
+        const tipoCliente = getRandomTipoCliente();
+
+        colaPersonas.push({ tipoCliente });
+
+        updateColaTable();
+      }
+
+      // Función para simular la atención en las ventanillas
+      function simulateAtencion() {
+        if (colaPersonas.length === 0) {
+          return;
+        }
+
+        // Ordenar cola por prioridad
+        colaPersonas.sort((a, b) => getPrioridad(a.tipoCliente) - getPrioridad(b.tipoCliente));
+
+        const tipoCliente = colaPersonas[0].tipoCliente;
+
+        // Asignar persona a una ventanilla disponible
+        const ventanilla = Array.from(ventanillasContainer.children).find(
+          (v) => !v.classList.contains('ventanilla-ocupada') && !v.classList.contains('ventanilla-fuera-servicio')
+        );
+
+        if (ventanilla) {
+          ventanilla.classList.add('ventanilla-ocupada');
+          const tiempoAtencion = getRandomTiempoVentanilla();
+          setTimeout(() => {
+            ventanilla.classList.remove('ventanilla-ocupada');
+            ventanilla.classList.add('ventanilla-fuera-servicio');
+            setTimeout(() => {
+              ventanilla.classList.remove('ventanilla-fuera-servicio');
+              ventanilla.classList.add('ventanilla');
+            }, getRandomTiempoSinAtender() * 1000);
+          }, tiempoAtencion * 1000);
+
+          // Eliminar persona de la cola después de la animación
+          setTimeout(() => {
+            colaPersonas.shift();
+            updateColaTable();
+          }, tiempoAtencion * 1000);
+
+          // Agregar persona atendida a la lista
+          atendidasPersonas.push({
+            tipoCliente,
+            ventanilla: ventanilla.textContent,
+            tiempoAtencion,
+            proceso: 'Terminado'
+          });
+          updateAtendidasTable();
+
+          // Actualizar estadísticas
+          totalPersonasAtendidas += 1;
+          tiempoTotalAtencion += tiempoAtencion;
+          updateStats();
+        }
+
+        // Llamar recursivamente para atender la siguiente persona
+        setTimeout(simulateAtencion, 1000);
+      }
+
+      // Iniciar simulación
+      for (let i = 1; i <= 20; i++) {
+        simulateArrival(i);
+      }
+
+      // Esperar 2 segundos antes de iniciar la atención
+      setTimeout(simulateAtencion, 2000);
+    }
+  </script>
+</body>
+</html>
